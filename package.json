@@ -1,0 +1,12 @@
+{
+  "name": "maria-digital-workshop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check:budgets": "node scripts/check-budgets.mjs"
+  },
+  "engines": { "node": ">=24" }
+}
