@@ -14,6 +14,7 @@ try {
   const context = await browser.newContext({viewport:{width:1440,height:1000}});
   const page = await context.newPage();
   page.on('pageerror', error => report.errors.push(error.message));
+  page.on('console', message => { if(message.type()==='error') report.errors.push(message.text()); });
   page.on('response', response => { if(response.status()>=400) report.errors.push(`${response.status()} ${response.url()}`); });
   await page.goto(base);
   await page.evaluate(()=>document.fonts.ready);
@@ -25,13 +26,31 @@ try {
   await page.screenshot({path:'artifacts/desktop.png',fullPage:true});
   await page.locator('#home').screenshot({path:'artifacts/hero.png'});
   await page.locator('#about').screenshot({path:'artifacts/about.png'});
-  for (const width of [320,375,768,1024,1440]) {
+  for (const width of [320,375,400,768,1024,1440]) {
     await page.setViewportSize({width,height:900});
     const sizes=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
     if(sizes.scroll>sizes.width+1) console.log(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>({tag:el.tagName,cls:el.className,right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width})).slice(0,20)));
     assert.ok(sizes.scroll<=sizes.width+1,`Переполнение ${width}: ${sizes.scroll}`);report.widths.push(sizes);
   }
-  report.checks.push('Ширины 320, 375, 768, 1024, 1440 без переполнения');
+  report.checks.push('Ширины 320, 375, 400, 768, 1024, 1440 без переполнения');
+  const anchors=await page.locator('a[href^="#"]').evaluateAll(links=>links.map(a=>({href:a.getAttribute('href'),exists:!!document.getElementById(a.getAttribute('href').slice(1))})));
+  assert.ok(anchors.every(a=>a.exists),'Якорь без целевого раздела');
+  report.checks.push('Все внутренние якоря имеют целевые разделы');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  for(const id of ['work','services','process','about','contact']){
+    await page.locator('#navigation a[href="#'+id+'"]').first().click();
+    assert.equal(new URL(page.url()).hash,'#'+id);
+    const top=await page.locator('#'+id).evaluate(el=>el.getBoundingClientRect().top);
+    assert.ok(top>=-1 && top<180, 'Якорь '+id+' прокручивает страницу');
+  }
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  report.checks.push('Переходы навигации к пяти секциям');
+  for(const width of [320,375,400,768,1024,1440]){
+    await page.setViewportSize({width,height:900});
+    const small=await page.locator('a,button,summary').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length && getComputedStyle(el).visibility!=='hidden').filter(el=>{const r=el.getBoundingClientRect();return r.width<43.5||r.height<43.5}).map(el=>el.textContent.trim()));
+    assert.deepEqual(small,[], 'Область нажатия меньше 44px на '+width);
+  }
+  report.checks.push('Видимые ссылки, кнопки и summary не меньше 44 × 44 на шести ширинах');
   await page.setViewportSize({width:320,height:812});
   const originalTitle=await page.locator('h1').innerHTML();
   await page.locator('h1').evaluate(el=>el.textContent='Сверхдлинноеназваниецифровогопроектабезпробеловдляпроверкипереноса');
@@ -39,7 +58,10 @@ try {
   await page.locator('h1').evaluate((el,html)=>el.innerHTML=html,originalTitle);
   report.checks.push('Длинное слово в заголовке на 320px');
   await page.setViewportSize({width:375,height:812});
+  await page.goto(base);
+  await page.evaluate(()=>document.fonts.ready);
   await page.screenshot({path:'artifacts/mobile.png',fullPage:true});
+  await page.screenshot({path:'artifacts/mobile-hero.png'});
   const menu=page.getByRole('button',{name:'Меню'});
   await menu.click();assert.equal(await menu.getAttribute('aria-expanded'),'true');
   await page.keyboard.press('Escape');assert.equal(await menu.getAttribute('aria-expanded'),'false');

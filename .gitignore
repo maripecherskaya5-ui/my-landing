@@ -1,0 +1,24 @@
+# Local previews, backups and agent work log
+/artifacts/
+/backups/
+/progress.md
+
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+*.log
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.npmrc
+.codex/
+.agents/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
